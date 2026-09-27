@@ -97,7 +97,7 @@ Diverse øvrige oplysninger
 Lagerprincip
 Aktiebaseret|Obligationsbaseret, Optaget til handel, SEL § 3.1.19
 ```
-Sections: "Aktieoplysninger", "Aktiesparekonto" (skip), "Investeringsforeninger og -selskaber". Numbers use `.` thousands and `,` decimals (`53.228`, `1.301,50`).
+Sections: "Aktieoplysninger", "Aktiesparekonto" (skip), "Investeringsforeninger og -selskaber". Numbers use `.` thousands and `,` decimals (`12.345`, `1.234,50`).
 - Page headers/footers can split a block anywhere; lines matching `PDF_NOISE` (`27/09/2026, 16:12`, `TastSelv - Skatteoplysninger`, `…tastselv.skat.dk…`, page `12/18`) are removed first.
 - Data row = first line in the block starting with two long numbers; drop regnr + depotnr. Beholdning: kursværdi = last number, antal = number before the 6-decimal price. Udlodning: kursværdi = first remaining number; antal = first bare number after "Antal beviser/aktier".
 - Same ISIN twice outside ASK is summed. Only Beholdning/Udlodning blocks are read (Gebyr/Køb/Salg/Udbytte ignored).
@@ -117,7 +117,7 @@ Sections: "Aktieoplysninger", "Aktiesparekonto" (skip), "Investeringsforeninger 
 | Sparindex INDEX OMX C25 KL                                     | DK0060442556 | n/a (Danish udloddende fund) |
 | Nordnet Global Indeks                                          | IE00BMTD2K75 | check against list |
 
-Test expectations from the sample exports (23 Sept 2026): four July purchases give lager gain 6.703 kr.; Sparindex dividend 127,50 gross / 34,43 withheld; IT Sector with baseline 53.228 → 11.638 kr.
+Test expectations (synthetic, same shapes as the real exports): four purchases of one ETF in July for 20.000 kr. in total, worth 25.000 kr. now → lager gain 5.000 kr. (all bought this year, baseline 0); a Danish fund dividend of 100,00 kr. gross with 27,00 kr. withheld; an ETF held all year with baseline 50.000 kr. and value 60.000 kr. now → 10.000 kr.
 
 ## 4. Code map (`index.html`)
 - `APP_VERSION` (top of script) — shown in the footer; `checkForUpdate()` fetches `location.href` (no-store) on load and every 5 min and shows `#updBanner` when the hosted file has another version (skipped for `file:`, errors ignored).
