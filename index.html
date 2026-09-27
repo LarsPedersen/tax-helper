@@ -96,7 +96,8 @@ button.btn:focus-visible,select:focus-visible,input:focus-visible,.seg button:fo
 textarea{width:100%;min-height:120px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:8px}
 .hidden{display:none !important}
 .updbanner{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--warn-soft);color:var(--ink);border-bottom:1px solid var(--warn);font-size:14px}
-.appver{font-size:12px;color:var(--ink-3);text-align:center;margin:8px 0 0}
+.appver{font-size:12px;color:var(--ink-3);text-align:center;margin:0}
+.appver-card{padding:10px 20px}
 @media (max-width:600px){ main{padding:16px 12px 60px} .filelist li{grid-template-columns:1fr} th,td{padding:6px 5px} }
 @media (prefers-reduced-motion:reduce){ *{transition:none !important} }
 @media print{
@@ -176,10 +177,10 @@ textarea{width:100%;min-height:120px;font:13px/1.4 ui-monospace,Menlo,Consolas,m
   <div class="tablewrap"><table id="evidence"></table></div>
   <p class="note" style="margin-top:12px" data-i18n="disclaimer">Værktøjet regner efter de almindelige regler for private frie midler og er et skøn til forskudsopgørelsen, ikke rådgivning. Kontrollér altid mod skat.dk.</p>
 </section>
-<p class="appver" id="appVersion"></p>
+<section class="card noprint appver-card"><p class="appver" id="appVersion"></p></section>
 </main>
 <script>
-const APP_VERSION = "2026-09-27.3";   // bump on every change – open pages compare it with the hosted file
+const APP_VERSION = "2026-09-27.4";   // bump on every change – open pages compare it with the hosted file
 /* ===================== i18n ===================== */
 const I18N = {
  da:{
