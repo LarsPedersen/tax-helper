@@ -1,0 +1,6 @@
+# Never commit real exports or tax prints
+*.csv
+*.pdf
+*.xlsx
+.DS_Store
+.claude/
