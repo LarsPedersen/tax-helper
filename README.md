@@ -7,7 +7,7 @@ Single-file browser tool that reads Nordnet exports, classifies each security un
 ## Files
 
 - `index.html` – the app, one file, no build step
-- `HANDOFF.md` – tax rules implemented, input formats, code map, open items
+- `DEVELOPING.md` – tax rules implemented, input formats, code map, release procedure, open items
 - `build-abis.py` – embeds a new ABIS list (skat.dk xlsx) into `index.html`
 
 ## Usage

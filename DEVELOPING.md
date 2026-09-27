@@ -1,4 +1,4 @@
-# Forskud · aktieindkomst — project handoff
+# Forskud · aktieindkomst — developer reference
 
 Single-file browser tool (`index.html`) that reads Nordnet exports, classifies each
 security under Danish tax rules and outputs the amounts and field numbers to enter on the
