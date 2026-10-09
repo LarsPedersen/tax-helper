@@ -66,6 +66,7 @@ th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line-2);vert
 th{font-weight:500;color:var(--ink-2);border-bottom:1px solid var(--line)}
 td.num,th.num{text-align:right;white-space:nowrap}
 tr.total td{font-weight:600;border-top:1px solid var(--line)}
+tr.grp td{background:var(--bg);font-weight:600}
 .tablewrap{overflow-x:auto}
 select,input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:5px 7px;min-width:0}
 input[type=number]{width:120px;text-align:right}
@@ -177,10 +178,23 @@ textarea{width:100%;min-height:120px;font:13px/1.4 ui-monospace,Menlo,Consolas,m
   <div class="tablewrap"><table id="evidence"></table></div>
   <p class="note" style="margin-top:12px" data-i18n="disclaimer">Værktøjet regner efter de almindelige regler for private frie midler og er et skøn til forskudsopgørelsen, ikke rådgivning. Kontrollér altid mod skat.dk.</p>
 </section>
+<section class="card hidden" id="secPlace">
+  <h2 data-i18n="placeTitle">6 · Placering: aktiesparekonto eller frit depot</h2>
+  <p class="note" data-i18n="placeNote"></p>
+  <div class="row noprint" style="margin-bottom:6px">
+    <label class="row" style="gap:6px"><span data-i18n="plCeiling">ASK-loft</span> <input type="number" id="plCeiling" min="0" step="100" style="width:110px"></label>
+    <label class="row" style="gap:6px"><span data-i18n="plAskStart">ASK-værdi 31.12. året før</span> <input type="number" id="plAskStart" min="0" step="100" style="width:110px"></label>
+    <label class="row" style="gap:6px"><span data-i18n="plRet">Forventet årligt afkast %</span> <input type="number" id="plRet" value="7" step="0.5" style="width:70px"></label>
+    <label class="row" style="gap:6px"><span data-i18n="plKap">Sats kapitalindkomst %</span> <input type="number" id="plKap" value="37" step="1" style="width:70px"> <small class="muted" data-i18n="plKapHint">typisk 37–42 %</small></label>
+  </div>
+  <div class="note" id="placeInfo"></div>
+  <div id="placeSummary" style="margin:8px 0;font-size:14px"></div>
+  <div class="tablewrap"><table id="placeTable"></table></div>
+</section>
 <section class="card noprint appver-card"><p class="appver" id="appVersion"></p></section>
 </main>
 <script>
-const APP_VERSION = "2026-10-09.1";   // bump on every change – open pages compare it with the hosted file
+const APP_VERSION = "2026-10-09.4";   // bump on every change – open pages compare it with the hosted file
 /* ===================== i18n ===================== */
 const I18N = {
  da:{
@@ -195,6 +209,16 @@ const I18N = {
   pdfDebug:"Tekst udtrukket fra PDF (til fejlfinding af parseren)",
   jyskeTitle:"4 · Jyske Bank (manuel indtastning)",
   jyskeNote:"Der findes endnu ingen parser til Jyske Banks eksport. Tast tallene fra netbankens afkast-/skatteoversigt: udbytte før skat, indeholdt udbytteskat, realiseret gevinst/tab ved salg i år, og for lagerbeskattede papirer værdiændringen i år.",
+  placeTitle:"6 · Placering: aktiesparekonto eller frit depot",
+  placeNote:"Sammenligning af reglerne under de antagelser, du angiver – ikke rådgivning. At flytte et papir kræver salg og genkøb: i frit depot udløser salget skat af gevinsten (for realisationsbeskattede papirer) og der er handelsomkostninger. Aktiesparekontoen kan kun modtage kontante indskud inden for loftet, Et aktiesparekonto må kun indeholde noterede aktier og aktiebaserede fonde/investeringsselskaber (ABIS-listen).",
+  plCeiling:"ASK-loft", plAskStart:"ASK-værdi 31.12. året før", plRet:"Forventet årligt afkast %", plKap:"Sats kapitalindkomst %", plKapHint:"typisk 37–42 %",
+  plRoom:"Plads til indskud i år", plBest:"Bedste kandidater til ASK inden for pladsen", plSaving:"Samlet skønnet besparelse", plPerYear:"kr./år", plPartial:"delvist", plNone:"ingen",
+  plLeast:"Papirer i ASK med mindst fordel", plAktieRate:"Aktieindkomst-sats {r} % (skønnet aktieindkomst {inc} {cmp} grænsen {thr})", plBelow:"under", plAbove:"over",
+  plAskRate:"ASK-sats 17 %", plRoomRule:"plads = loft − ASK-værdi 31.12.", plAskStartMissing:"ASK-værdi 31.12. ikke angivet – pladsen er regnet som hele loftet.",
+  plColDepot:"Depot", plColFree:"Skat/år frit depot", plColAsk:"Skat/år ASK", plColDiff:"Forskel/år", plColPer10k:"pr. 10.000 kr.", plColMove:"Skat ved flytning", plColVerdict:"Vurdering",
+  plDepotFree:"Frit", plDepotAsk:"ASK", plDeferred:"udskudt – betales først ved salg", plDivTax:"udbytteskat i år", plLagerTaxed:"allerede lagerbeskattet",
+  plGrpFree:"Frit depot – kandidater til ASK", plGrpAsk:"Aktiesparekonto", vMoveIn:"flyt ind", vConsider:"overvej", vOk:"ok", vMoveOut:"flyt ud?",
+  vNotAllowed:"ikke tilladt på ASK", vCheckType:"tjek type", plNotAllowedNote:"kan kun flyttes ved at skifte til et tilsvarende papir på ABIS-listen",
   addRow:"+ Tilføj linje", resultTitle:"5 · Det skal i forskudsopgørelsen",
   buffer:"Buffer, % af lagerbeskattet værdi", married:"Gift (dobbelt progressionsgrænse)", threshold:"Progressionsgrænse",
   taxTitle:"Skøn over skatten", evidenceTitle:"Grundlag pr. papir",
@@ -240,6 +264,16 @@ const I18N = {
   pdfDebug:"Text extracted from PDF (for debugging the parser)",
   jyskeTitle:"4 · Jyske Bank (manual entry)",
   jyskeNote:"No parser exists yet for Jyske Bank exports. Enter the numbers from the netbank return/tax overview: gross dividends, withheld dividend tax, realised gain/loss on sales this year, and for lager-taxed securities the value change this year.",
+  placeTitle:"6 · Placement: aktiesparekonto or free depot",
+  placeNote:"A comparison of the rules under the assumptions you enter – not advice. Moving a security requires selling and rebuying: in the free depot the sale triggers tax on the gain (for realisation-taxed securities) and there are trading costs. The aktiesparekonto only accepts cash deposits within the ceiling An aktiesparekonto may only hold listed shares and equity-based funds/investment companies (the ABIS list).",
+  plCeiling:"ASK ceiling", plAskStart:"ASK value 31 Dec previous year", plRet:"Expected annual return %", plKap:"Rate on kapitalindkomst %", plKapHint:"typically 37–42 %",
+  plRoom:"Deposit room this year", plBest:"Best candidates for the ASK within the room", plSaving:"Total estimated saving", plPerYear:"DKK/year", plPartial:"partly", plNone:"none",
+  plLeast:"Securities in the ASK with the smallest benefit", plAktieRate:"Share income rate {r} % (estimated share income {inc} {cmp} the threshold {thr})", plBelow:"below", plAbove:"above",
+  plAskRate:"ASK rate 17 %", plRoomRule:"room = ceiling − ASK value 31 Dec", plAskStartMissing:"ASK value at 31 Dec not entered – room is taken as the full ceiling.",
+  plColDepot:"Depot", plColFree:"Tax/yr free depot", plColAsk:"Tax/yr ASK", plColDiff:"Difference/yr", plColPer10k:"per 10,000 DKK", plColMove:"Tax if moved now", plColVerdict:"Assessment",
+  plDepotFree:"Free", plDepotAsk:"ASK", plDeferred:"deferred – paid on sale", plDivTax:"dividend tax this year", plLagerTaxed:"already taxed on lager basis",
+  plGrpFree:"Free depot – candidates for the ASK", plGrpAsk:"Aktiesparekonto", vMoveIn:"move in", vConsider:"consider", vOk:"ok", vMoveOut:"move out?",
+  vNotAllowed:"not allowed in ASK", vCheckType:"check type", plNotAllowedNote:"can only be moved by switching to an equivalent security on the ABIS list",
   addRow:"+ Add row", resultTitle:"5 · Enter on the forskudsopgørelse",
   buffer:"Buffer, % of lager-taxed value", married:"Married (double threshold)", threshold:"Progression threshold",
   taxTitle:"Tax estimate", evidenceTitle:"Basis per security",
@@ -286,6 +320,7 @@ function applyLang(){
 
 /* ===================== constants ===================== */
 const THRESHOLDS = {2024:61000, 2025:67500, 2026:79400, 2027:79400};
+const ASK_CEILING = {2024:135900, 2025:166200, 2026:174200};   // aktiesparekonto: deposit room = ceiling − value 31.12. previous year
 const KNOWN_ISIN = {
  "ishares digital security ucits etf usd (acc)":"IE00BG0J4C88",
  "ishares s&p 500 information technology sector ucits etf usd (acc)":"IE00B3WJKG14",
@@ -371,6 +406,8 @@ const S = {
   abisSrc:null,        // "builtin" (ABIS_EMBED) | "file" (xlsx dropped in)
   abisLabel:"",
   holdings:{},         // key -> position
+  askHoldings:{},      // key -> position in aktiesparekonto files (section 6 only, never in tax fields)
+  place:{ceiling:null, ceilingManual:false, askStart:null, askStartManual:false, ret:7, kap:37},   // section 6 inputs
   overrides:{},        // key -> {type, isin}
   baseline:{},         // isin -> {value, src}
   jyske:[],            // manual rows
@@ -540,7 +577,7 @@ function dkNum(t){ // skat.dk prints 53.228 or 1.301,50 – dots are thousands s
   return num(x);
 }
 function parseSkatteoplysninger(text){
-  const out={};
+  const out={}, askOut={};
   const lines = text.split("\n").map(l=>l.trim()).filter(l=>!PDF_NOISE.some(re=>re.test(l)));
   const blockStart = /^(Beholdning|Udlodning \/ tilskrivning|Køb|Salg|Udbytte|Gebyr)/;
   const sectionStart = /^(Aktiesparekonto|Investeringsforeninger og -selskaber|Aktieoplysninger|Biloplysninger|Ejendomsoplysninger|Renteindtægter|Oplysninger om løn|Privattegnede|Udenlandsk indkomst)/;
@@ -558,7 +595,6 @@ function parseSkatteoplysninger(text){
     const isin = isinLine.match(isinRe)[1];
     const name = isinLine.replace(isin,"").trim().replace(PDF_COUNTRY,"").trim();
     if (name && !PDF_NAME[isin]) { PDF_NAME[isin]=name; PDF_KIND[isin]=shares?"shares":"invest"; }
-    if (inAsk) continue;
     const dataRow = blk.find(l=>/^\d{5,}\s+\d{5,}/.test(l));
     const tokens = dataRow ? dataRow.split(/\s+/).filter(t=>/^-?[\d.,]+$/.test(t)).slice(2) : [];
     let value=null, antal=null;
@@ -572,15 +608,18 @@ function parseSkatteoplysninger(text){
       if (aLine) antal = num(aLine);
     }
     if (value!=null && value>0){
+      if (inAsk) { askOut[isin] = (askOut[isin]||0) + value; continue; }   // ASK: not a baseline, only its 31.12. value for section 6
       if (out[isin]) { out[isin].value += value; if (antal!=null) out[isin].antal = (out[isin].antal||0) + antal; }
       else out[isin]={value, antal};
     }
   }
   // flatten to isin -> value, keep antal for cross-check
   const flat={}; for (const [k,v] of Object.entries(out)){ flat[k]=v.value; PDF_ANTAL[k]=v.antal; }
+  Object.assign(PDF_ASK, askOut);
   return flat;
 }
 const PDF_ANTAL = {};
+const PDF_ASK = {};    // isin -> kursværdi 31.12. in the Aktiesparekonto section (default for section 6)
 const PDF_NAME = {};   // isin -> papirnavn in the PDF (all sections), used to resolve holdings without ISIN
 const PDF_KIND = {};   // isin -> "shares" | "invest"
 // name tokens for PDF name matching: lowercase, no punctuation, no generic words, >=3 chars
@@ -625,17 +664,8 @@ function rebuild(){
       S.holdings[key] = { key, name, nkey:n, isin, units, currency:get(r,"Valuta"), value, cost, div:0, withheld:0, realised:0, purchases:0, purchasedUnits:0, sales:0, inTx:false };
     }
   }
-  // holdings without ISIN: token match on transaction names ("Nordnet Teknologi Indeks" ↔ "… Indeks DKK"),
-  // then on the papirnavn from Skatteoplysninger (unique match, ISIN not used by another holding)
-  const txCands = Object.entries(nameToIsin).map(([n,isin])=>({name:n, isin}));
-  for (const [src, find] of [["tx", nm=>isinByName(nm, txCands)], ["pdf", pdfIsinByName]]){
-    for (const p of Object.values(S.holdings)){
-      if (p.isin) continue;
-      const isin = find(p.name);
-      if (!isin || Object.values(S.holdings).some(h=>h.isin===isin)) continue;
-      delete S.holdings[p.key]; p.key=isin; p.isin=isin; p.isinSrc=src; S.holdings[isin]=p;
-    }
-  }
+  // holdings without ISIN: token match on transaction names, then PDF papirnavn (resolveByName)
+  resolveByName(S.holdings, Object.entries(nameToIsin).map(([n,isin])=>({name:n, isin})));
   // transactions of the tax year
   S.feeIsins = new Map();
   for (const r of txFree){
@@ -657,7 +687,37 @@ function rebuild(){
       p.realised += (cur==="DKK"||!cur) ? res : res*fx;
     }
   }
+  // aktiesparekonto positions – only for section 6 (placement); never in S.holdings or any tax field
+  S.askHoldings = {};
+  const nameToIsinAll = {};
+  for (const r of S.files.filter(f=>f.kind==="tx").flatMap(f=>f.rows)){ const isin=(get(r,"ISIN")||"").toUpperCase(); const nm=norm(get(r,"Værdipapirer")); if (isinRe.test(isin)&&nm) nameToIsinAll[nm]=isin; }
+  for (const f of S.files.filter(f=>f.kind==="holdings" && f.depot==="ask")){
+    for (const r of f.rows){
+      const name = get(r,"Navn"); if (!name) continue;
+      const n = norm(name);
+      const isin = (S.overrides[n]?.isin) || KNOWN_ISIN[n] || nameToIsinAll[n] || "";
+      const value = num(get(r,"Værdi DKK")); const costCol = get(r,"Anskaffelsessum DKK");
+      const cost = costCol!==undefined ? num(costCol) : value - num(get(r,"Afkast DKK"));
+      const key = keyFor(name,isin); const units = num(get(r,"Antal"));
+      const prev = S.askHoldings[key];
+      if (prev){ prev.units += units; prev.value += value; prev.cost += cost; continue; }
+      S.askHoldings[key] = { key, name, nkey:n, isin, units, value, cost, div:0, depot:"ask" };
+    }
+  }
+  resolveByName(S.askHoldings, Object.entries(nameToIsinAll).map(([n,isin])=>({name:n, isin})));
   render();
+}
+// positions without ISIN: token match on transaction names ("Nordnet Teknologi Indeks" ↔ "… Indeks DKK"),
+// then on the papirnavn from Skatteoplysninger (unique match, ISIN not used by another position in the same map)
+function resolveByName(map, txCands){
+  for (const [src, find] of [["tx", nm=>isinByName(nm, txCands)], ["pdf", pdfIsinByName]]){
+    for (const p of Object.values(map)){
+      if (p.isin) continue;
+      const isin = find(p.name);
+      if (!isin || Object.values(map).some(h=>h.isin===isin)) continue;
+      delete map[p.key]; p.key=isin; p.isin=isin; p.isinSrc=src; map[isin]=p;
+    }
+  }
 }
 
 /* ===================== classification ===================== */
@@ -740,7 +800,7 @@ function taxCalc(F, buffer, bufferField, withheld){
 
 /* ===================== render ===================== */
 function render(){
-  renderFiles(); renderStatus(); renderClass(); renderBase(); renderJyske(); renderResult();
+  renderFiles(); renderStatus(); renderClass(); renderBase(); renderJyske(); renderResult(); renderPlace();
 }
 function renderFiles(){
   const ul = document.getElementById("fileList"); ul.innerHTML="";
@@ -868,6 +928,71 @@ function renderResult(){
   }
   et.innerHTML=e+"</tbody>";
 }
+/* ---- section 6: aktiesparekonto vs free depot (rule comparison, no effect on the tax fields) ---- */
+const LAGER_T = ["abis","nonabis","bond"], REAL_T = ["stock_dk","stock_for","fund_dk"], NOT_ON_ASK = ["nonabis","bond"];
+function placeCompute(){
+  const P = S.place; const r = (P.ret||0)/100, kap = (P.kap||0)/100, ASK = 0.17;
+  const c = compute(); const tx = taxCalc(c.F, c.buffer, c.bufferField, c.withheld);
+  const aktie = tx.share > tx.thr ? 0.42 : 0.27;
+  const room = Math.max(0, (P.ceiling||0) - (P.askStart||0));
+  const row = (p, depot) => {
+    const type = classify(p).type; if (type==="exclude" || !(p.value>0)) return null;
+    const V = p.value, rate = (type==="nonabis"||type==="bond") ? kap : aktie;
+    const freeTax = rate*r*V, askTax = ASK*r*V, diff = freeTax - askTax;
+    const o = {p, depot, type, V, freeTax, askTax, diff, per10k: diff/V*10000, deferred: REAL_T.includes(type), lager: LAGER_T.includes(type),
+      allowed: !NOT_ON_ASK.includes(type)};   // aktiesparekontoloven: no non-ABIS investeringsselskaber, no bond funds
+    if (depot==="free"){
+      o.divTax = o.deferred && p.div ? aktie*p.div : 0;
+      const gain = Math.max(0, V - (p.cost||0));
+      o.moveTax = type==="bond" ? kap*gain : o.deferred ? aktie*gain : 0;
+    }
+    return o;
+  };
+  const k = o => Math.round(o.per10k*100);   // compare in 0.01 kr. steps (float noise)
+  const rank = (a,b) => (k(b) - k(a)) || (Number(b.lager) - Number(a.lager));   // tie: paid-now (lager) before deferred
+  const free = Object.values(S.holdings).filter(p=>!p.soldOut).map(p=>row(p,"free")).filter(Boolean)
+    .sort((a,b)=>(Number(b.allowed)-Number(a.allowed)) || rank(a,b));   // not allowed in the ASK: listed last
+  const ask = Object.values(S.askHoldings).map(p=>row(p,"ask")).filter(Boolean).sort((a,b)=>-rank(a,b));
+  // greedy fill of this year's deposit room
+  let left = room, saving = 0; const picks = []; let bestUnplaced = null;
+  for (const o of free.filter(o=>o.diff>0 && o.allowed)){
+    const put = Math.min(o.V, left);
+    if (put>0){ picks.push({o, put, partial: put < o.V - 0.5}); saving += o.diff*put/o.V; left -= put; }
+    if (!bestUnplaced && put < o.V - 0.5) bestUnplaced = o;
+  }
+  for (const o of free) o.verdict = !o.allowed ? "vNotAllowed" : o.diff>0 ? (o.lager ? "vMoveIn" : "vConsider") : "vOk";
+  for (const o of ask) o.verdict = !o.allowed ? "vCheckType" : (o.diff<=0 || (bestUnplaced && (k(o) < k(bestUnplaced) || (k(o)===k(bestUnplaced) && !o.lager && bestUnplaced.lager)))) ? "vMoveOut" : "vOk";
+  const least = ask.filter(o=>o.verdict==="vMoveOut");
+  return {free, ask, room, picks, saving, least, bestUnplaced, aktie, tx};
+}
+function renderPlace(){
+  const sec = document.getElementById("secPlace");
+  const any = Object.values(S.holdings).some(p=>!p.soldOut) || Object.keys(S.askHoldings).length;
+  sec.classList.toggle("hidden", !any); if (!any) return;
+  const P = S.place;
+  if (!P.ceilingManual) P.ceiling = ASK_CEILING[S.taxYear] ?? ASK_CEILING[Math.max(...Object.keys(ASK_CEILING).map(Number))];
+  if (!P.askStartManual) P.askStart = Object.keys(PDF_ASK).length ? Math.round(Object.values(PDF_ASK).reduce((a,v)=>a+v,0)) : null;
+  const setIdle = (id,v) => { const el=document.getElementById(id); if (document.activeElement!==el) el.value = v ?? ""; };
+  setIdle("plCeiling", P.ceiling); setIdle("plAskStart", P.askStart); setIdle("plRet", P.ret); setIdle("plKap", P.kap);
+  const R = placeCompute();
+  document.getElementById("placeInfo").innerHTML = [
+    esc(t("plAktieRate").replace("{r}", Math.round(R.aktie*100)).replace("{inc}", fmtK(R.tx.share)).replace("{cmp}", t(R.aktie>0.27?"plAbove":"plBelow")).replace("{thr}", fmtK(R.tx.thr))),
+    esc(t("plAskRate")), esc(t("plRoomRule"))].join(" · ") + (P.askStart==null ? `<br>${esc(t("plAskStartMissing"))}` : "");
+  const nm = o => `${esc(o.p.name)} (${fmtK(o.V)})`;
+  document.getElementById("placeSummary").innerHTML =
+    `<div><b>${t("plRoom")}: ${fmtK(R.room)}</b> · ${t("plBest")}: ${R.picks.length ? R.picks.map(k=>`${esc(k.o.p.name)} (${fmtK(k.put)}${k.partial?", "+t("plPartial"):""})`).join(", ") : t("plNone")} · ${t("plSaving")}: <b>${fmt(Math.round(R.saving))} ${t("plPerYear")}</b></div>` +
+    (R.least.length ? `<div>${t("plLeast")}: ${R.least.map(nm).join(", ")}.</div>` : "");
+  const tag = v => v==="vMoveIn" ? `<span class="tag warn">${t(v)}</span>` : v==="vMoveOut" ? `<span class="tag warn">${t(v)}</span>` : v==="vCheckType" ? `<span class="tag warn">${t(v)}</span>` : (v==="vConsider"||v==="vNotAllowed") ? `<span class="muted">${t(v)}</span>` : `<span class="tag">${t(v)}</span>`;
+  const tr = o => {
+    const free = o.deferred ? `<span class="muted">${fmtK(o.freeTax)}</span><br><small class="muted">${t("plDeferred")}</small>${o.divTax?`<br><small>${t("plDivTax")} ${fmtK(o.divTax)}</small>`:""}` : fmtK(o.freeTax);
+    const move = o.depot!=="free" ? "–" : (o.lager && o.type!=="bond") ? `0<br><small class="muted">${t("plLagerTaxed")}</small>` : fmtK(o.moveTax);
+    return `<tr><td>${esc(o.p.name)}</td><td>${esc(o.p.isin)||"–"}</td><td>${t(o.depot==="ask"?"plDepotAsk":"plDepotFree")}</td><td>${t(TYPE_LABEL[o.type])}</td><td class="num">${fmtK(o.V)}</td><td class="num">${free}</td><td class="num">${fmtK(o.askTax)}</td><td class="num">${fmtK(o.diff)}</td><td class="num">${fmt(o.per10k)}</td><td class="num">${move}</td><td>${tag(o.verdict)}${o.verdict==="vNotAllowed"?`<br><small class="muted">${t("plNotAllowedNote")}</small>`:""}</td></tr>`;
+  };
+  let h = `<thead><tr><th>${t("colName")}</th><th>${t("colIsin")}</th><th>${t("plColDepot")}</th><th>${t("colType")}</th><th class="num">${t("colValue")}</th><th class="num">${t("plColFree")}</th><th class="num">${t("plColAsk")}</th><th class="num">${t("plColDiff")}</th><th class="num">${t("plColPer10k")}</th><th class="num">${t("plColMove")}</th><th>${t("plColVerdict")}</th></tr></thead><tbody>`;
+  if (R.free.length) h += `<tr class="grp"><td colspan="11">${t("plGrpFree")}</td></tr>` + R.free.map(tr).join("");
+  if (R.ask.length) h += `<tr class="grp"><td colspan="11">${t("plGrpAsk")}</td></tr>` + R.ask.map(tr).join("");
+  document.getElementById("placeTable").innerHTML = h + "</tbody>";
+}
 function esc(s){ return (s??"").toString().replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 /* ===================== wiring ===================== */
@@ -883,12 +1008,16 @@ async function checkForUpdate(){
 (function init(){
   const ty=document.getElementById("taxYear"); ty.value=S.taxYear;
   document.getElementById("threshold").value = THRESHOLDS[S.taxYear] ?? THRESHOLDS[2026];
-  ty.addEventListener("change",()=>{ S.taxYear=parseInt(ty.value)||new Date().getFullYear(); document.getElementById("threshold").value = THRESHOLDS[S.taxYear] ?? document.getElementById("threshold").value; loadBuiltinAbis(); rebuild(); });
+  ty.addEventListener("change",()=>{ S.taxYear=parseInt(ty.value)||new Date().getFullYear(); S.place.ceilingManual=false; document.getElementById("threshold").value = THRESHOLDS[S.taxYear] ?? document.getElementById("threshold").value; loadBuiltinAbis(); rebuild(); });
   loadBuiltinAbis();
   document.getElementById("appVersion").textContent = "Version " + APP_VERSION;
   document.getElementById("updReload").onclick=()=>location.reload();
   checkForUpdate(); setInterval(checkForUpdate, 5*60*1000);
-  ["buffer","married","threshold"].forEach(id=>document.getElementById(id).addEventListener("input",renderResult));
+  ["buffer","married","threshold"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{ renderResult(); renderPlace(); }));
+  // section 6 inputs: an emptied ceiling / ASK value falls back to the default (table / PDF)
+  [["plCeiling","ceiling"],["plAskStart","askStart"],["plRet","ret"],["plKap","kap"]].forEach(([id,k])=>document.getElementById(id).addEventListener("input",e=>{
+    const v=e.target.value.trim(); if (k==="ceiling"||k==="askStart"){ S.place[k+"Manual"] = v!==""; S.place[k] = v==="" ? null : num(v); } else S.place[k] = num(v);
+    renderPlace(); }));
   document.getElementById("lang-da").onclick=()=>{LANG="da";applyLang();};
   document.getElementById("lang-en").onclick=()=>{LANG="en";applyLang();};
   document.getElementById("printBtn").onclick=()=>window.print();

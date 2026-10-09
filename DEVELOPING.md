@@ -47,6 +47,14 @@ gain = (value_now + sale_proceeds_this_year) − (value_31Dec_prev_year + purcha
 - Aktieindkomst = 501 + 502 + 509 + 345. Threshold 2026: 79.400 kr. (2025: 67.500; table in `THRESHOLDS`), doubled if married.
 - Tax = 27% up to threshold, 42% above; negative income → 27% negative tax. Withheld dividend tax (UDBYTTESKAT rows + manual) is netted off.
 
+### Placement: aktiesparekonto vs free depot (section 6, `placeCompute`)
+A rule comparison under user assumptions, not advice; it never changes the tax fields. Positions: free-depot `S.holdings` (not sold out) plus `S.askHoldings` (ASK holdings files, ISIN via override → `KNOWN_ISIN` → exact/token match on all tx names incl. ASK rows → PDF name; type from `classify()`). Inputs (`S.place`): ASK ceiling (`ASK_CEILING` 2024 135.900 / 2025 166.200 / 2026 174.200, reset to the table on tax-year change), ASK value 31.12. (default: sum of the Aktiesparekonto section in the PDF, `PDF_ASK`), expected return r (7 %), kapitalindkomst rate (37 %). Aktieindkomst rate = 27 % or 42 % from the app's own estimate vs threshold; ASK rate 17 %.
+- ASK tax/yr = 0.17·r·V. Free tax/yr: `abis` and `stock_dk/stock_for/fund_dk` aktie rate·r·V, `nonabis`/`bond` kap rate·r·V. Realisation types are shown as deferred (paid on sale) – **deferral is not discounted**; instead, at equal per-10.000 (within 0.01) a lager type counts as better than a realisation type – both in the ordering and in the ASK `flyt ud?`/"mindst fordel" test (an ASK share loses to an unplaced abis candidate, an ASK abis ETF does not lose to an unplaced share); this year's dividend tax (aktie rate·div) is shown separately.
+- Difference = free − ASK; ranking key = difference per 10.000 kr. (ties: lager types before realisation types). Tax if moved now: realisation types aktie rate·max(0, V − cost), `bond` kap rate·gain, lager types 0.
+- Eligibility (aktiesparekontoloven): the ASK may hold listed shares, aktiebaserede investeringsselskaber (ABIS list) and aktiebaserede minimumsbeskattede funds – not `nonabis` investeringsselskaber or `bond` funds (`NOT_ON_ASK`). Free-depot rows of those types keep their difference (cost of the regime) but get `ikke tilladt på ASK` + note "kan kun flyttes ved at skifte til et tilsvarende papir på ABIS-listen", are listed last and are excluded from the greedy fill, the candidate list and `bestUnplaced`. An ASK row classified `nonabis`/`bond` gets `tjek type` (Nordnet would not have allowed the purchase – usually an unresolved ISIN).
+- Room = max(0, ceiling − ASK value 31.12.). Greedy fill of the room by rank over allowed rows (last one may be partial) gives the candidate list and the estimated saving. Verdicts: free `flyt ind` (difference > 0, abis) / `overvej` (difference > 0, realisation type) / ok; ASK `flyt ud?` if difference ≤ 0 or its per-10.000 is below the best allowed candidate that did not fit (at equal return all allowed types tie at 27 %, so this mainly fires with different rates).
+- Not modelled: trading costs, cash in the ASK, ASK losses carried forward.
+
 ### ABIS list eligibility for a tax year
 `abisEligible()`: current skat.dk layout has `Registrerede år` per row (e.g. `2021,2022,2026`; Excel may store `2021,2022` as the number `2021.2022`) → on list if taxYear is among those years (union over all rows/sheets of the ISIN). Older layout fallback: `Første registreringsår ≤ taxYear` and (`Fjernet` empty or year(Fjernet) > taxYear).
 Note (fixed 2026-09-27): the old code looked for `Første`/`Fjernet` columns that the real file does not have, so every ISIN on any sheet 2021–2026 counted as ABIS (6.073 instead of 5.298 for 2026). Example: Jupiter Financial Innovation LU0262307720 is registered 2021–2022 only → `nonabis` in 2026.
@@ -126,9 +134,9 @@ Test expectations (synthetic, same shapes as the real exports): four purchases o
 - `decodeBuffer`, `parseCSV`, `num`, `get` — encoding/CSV helpers.
 - `handleFiles` → `ingestAbis` / `ingestPdf` / CSV kind detection.
 - `parseSkatteoplysninger`, `dkNum`, `PDF_NOISE`, `PDF_ANTAL`, `PDF_NAME`, `PDF_KIND`, `isinByName`/`pdfIsinByName` — PDF parser and name → ISIN match (also used for transaction names).
-- `rebuild()` — computes `S.askAccounts`, sets depot per file (`autoDepot`, `accountOf`), then builds `S.holdings` from holdings + transactions.
+- `rebuild()` — computes `S.askAccounts`, sets depot per file (`autoDepot`, `accountOf`), then builds `S.holdings` from holdings + transactions and `S.askHoldings` from ASK holdings files (section 6 only).
 - `classify`, `fieldsFor`, `lagerGain`, `compute`, `taxCalc`.
-- `render*()` — files, status, classification table, baselines, Jyske manual rows, result strip, evidence.
+- `render*()` — files, status, classification table, baselines, Jyske manual rows, result strip, evidence, placement (`placeCompute`/`renderPlace`).
 - State in `S`; overrides keyed by normalised name (`nkey`); baselines keyed by ISIN.
 
 External scripts (CDN): SheetJS 0.18.5, pdf.js 3.11.174 (+ worker). Font: IBM Plex Sans (Google Fonts).
@@ -147,6 +155,8 @@ External scripts (CDN): SheetJS 0.18.5, pdf.js 3.11.174 (+ worker). Font: IBM Pl
 
 9. Added 2026-09-27: `APP_VERSION` + update banner (for GitHub Pages hosting), embedded ABIS list (`build-abis.py`, `abisEligible` – also fixed the ABIS year rule, see section 1), Fondstabel handled like Aktietabel (same columns incl. `Anskaffelsessum DKK`), guide rewritten (per-account Aktier/Fonde exports with unchanged filenames, "Alle konti" transactions, full Skatteoplysninger print, built-in ABIS list).
    2026-09-27.2: holdings without ISIN are also token-matched against transaction names (`isinByName`, same rules as the PDF match) before the PDF match, so "Nordnet Teknologi Indeks" (Fondstabel) merges with "Nordnet Teknologi Indeks DKK" (tx, IE00BNNLSN94) instead of becoming a second, sold-out row; `isinSrc="tx"`, rule text `rIsinTx`. Resolution order: override → `KNOWN_ISIN` → exact tx name → token match tx names → token match PDF names.
+
+10. Added 2026-10-09 (`2026-10-09.2`): section 6 "Placering: aktiesparekonto eller frit depot" (see section 1). New: `ASK_CEILING`, `S.place`, `S.askHoldings` (built in `rebuild()` from ASK holdings files, never in tax fields), `PDF_ASK` (ASK-section kursværdi from the PDF; still not used as baseline), shared `resolveByName()`, `placeCompute()`/`renderPlace()`. `2026-10-09.3`: ASK eligibility (`NOT_ON_ASK`: nonabis/bond not allowed).
 
 ### Release procedure
 - Bump `APP_VERSION` (`YYYY-MM-DD.n`) on every change to the HTML – open pages compare it with the hosted file and ask the user to reload.
